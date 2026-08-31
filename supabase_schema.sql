@@ -1,20 +1,23 @@
 -- =========================================================
 -- MARIAM KHALED - ENGLISH LEARNING PLATFORM
--- SUPABASE DATABASE SCHEMA
+-- SUPABASE DATABASE SCHEMA (v2 with Points & Profile History)
 -- =========================================================
 
--- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Profiles Table
+-- 1. Profiles Table with Points
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   full_name TEXT,
   email TEXT,
   avatar_url TEXT,
+  points INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add points column if table already exists
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS points INT DEFAULT 0;
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
@@ -31,12 +34,13 @@ CREATE POLICY "Users can update their own profile"
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, full_name, email, avatar_url)
+  INSERT INTO public.profiles (id, full_name, email, avatar_url, points)
   VALUES (
     new.id,
     COALESCE(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
     new.email,
-    new.raw_user_meta_data->>'avatar_url'
+    new.raw_user_meta_data->>'avatar_url',
+    0
   )
   ON CONFLICT (id) DO UPDATE SET
     full_name = EXCLUDED.full_name,
@@ -106,47 +110,36 @@ CREATE TABLE IF NOT EXISTS public.questions (
 
 ALTER TABLE public.questions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Questions are readable by all authenticated and anon users"
+CREATE POLICY "Questions are readable by all"
   ON public.questions FOR SELECT USING (true);
 
-CREATE POLICY "Service role can modify questions"
-  ON public.questions FOR ALL USING (true);
-
--- 4. Quiz Results Table
+-- 4. Quiz Results Table (with points_earned)
 CREATE TABLE IF NOT EXISTS public.quiz_results (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_email TEXT,
   level_id TEXT REFERENCES public.levels(id) ON DELETE SET NULL,
+  level_name TEXT,
   total_questions INT NOT NULL,
   correct_answers INT NOT NULL,
   score_percentage INT NOT NULL,
   passed BOOLEAN NOT NULL,
+  points_earned INT DEFAULT 0,
   question_type TEXT DEFAULT 'all',
+  timer_mode TEXT DEFAULT 'none',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add points_earned and columns if not exists
+ALTER TABLE public.quiz_results ADD COLUMN IF NOT EXISTS points_earned INT DEFAULT 0;
+ALTER TABLE public.quiz_results ADD COLUMN IF NOT EXISTS user_email TEXT;
+ALTER TABLE public.quiz_results ADD COLUMN IF NOT EXISTS level_name TEXT;
+ALTER TABLE public.quiz_results ADD COLUMN IF NOT EXISTS timer_mode TEXT DEFAULT 'none';
 
 ALTER TABLE public.quiz_results ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view their own quiz results"
-  ON public.quiz_results FOR SELECT USING (auth.uid() = user_id OR auth.uid() IS NULL);
+CREATE POLICY "Users can view quiz results"
+  ON public.quiz_results FOR SELECT USING (true);
 
-CREATE POLICY "Users can insert their own quiz results"
+CREATE POLICY "Users can insert quiz results"
   ON public.quiz_results FOR INSERT WITH CHECK (true);
-
--- 5. User Answers Detail Table
-CREATE TABLE IF NOT EXISTS public.user_answers (
-  id SERIAL PRIMARY KEY,
-  result_id UUID REFERENCES public.quiz_results(id) ON DELETE CASCADE,
-  question_id INT REFERENCES public.questions(id) ON DELETE CASCADE,
-  selected_option TEXT,
-  is_correct BOOLEAN NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-ALTER TABLE public.user_answers ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view their answer details"
-  ON public.user_answers FOR SELECT USING (true);
-
-CREATE POLICY "Users can insert answer details"
-  ON public.user_answers FOR INSERT WITH CHECK (true);
