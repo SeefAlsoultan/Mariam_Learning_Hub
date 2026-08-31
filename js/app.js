@@ -558,10 +558,12 @@ const APP = {
       <nav class="navbar glass">
         <div class="navbar-inner">
           <div class="navbar-brand" onclick="APP.showPage('dashboard')">
-            <img src="public/mariam.png" alt="Mariam Khaled" class="brand-avatar-img">
+            <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;color:white;font-size:1.2rem;box-shadow:0 4px 12px rgba(46,117,182,0.25);">
+              📚
+            </div>
             <div>
-              <div style="font-size:1.05rem;font-weight:800;color:var(--primary);">Mariam Khaled</div>
-              <div style="font-size:0.75rem;color:var(--text-muted);font-weight:500;">English Learning Platform</div>
+              <div style="font-size:1.05rem;font-weight:800;color:var(--primary);">Mariam English Hub</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);font-weight:500;">Learning & Practice Portal</div>
             </div>
           </div>
           <div class="navbar-user">
@@ -639,12 +641,17 @@ const APP = {
     c.innerHTML = `
       <nav class="navbar glass">
         <div class="navbar-inner">
-          <div class="navbar-brand" onclick="APP.showPage('dashboard')">
-            <img src="public/mariam.png" alt="Mariam Khaled" class="brand-avatar-img">
-            <span>Mariam Khaled</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="btn btn-outline btn-sm" onclick="APP.showPage('dashboard')" style="display:inline-flex;align-items:center;gap:6px;">
+              ← Back to Dashboard
+            </button>
           </div>
           <div class="navbar-user">
-            <button class="btn btn-outline btn-sm" onclick="APP.showPage('dashboard')">🏠 Dashboard</button>
+            <div class="points-pill">⭐ ${this.user.points || 0} Pts</div>
+            <div class="user-chip">
+              <span class="user-avatar">${(this.user.name || 'S')[0].toUpperCase()}</span>
+              <span class="user-name">${this.user.name}</span>
+            </div>
             <button class="btn btn-outline btn-sm" onclick="APP.logout()">Sign Out</button>
           </div>
         </div>
@@ -755,13 +762,21 @@ const APP = {
     c.innerHTML = `
       <nav class="navbar glass">
         <div class="navbar-inner">
-          <a class="navbar-brand" onclick="APP.showPage('dashboard')">
-            <img src="public/mariam.png" alt="Mariam Khaled" class="brand-avatar-img">
-            <span>Mariam Khaled</span>
-          </a>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="btn btn-outline btn-sm" onclick="APP.showPage('dashboard')" style="display:inline-flex;align-items:center;gap:6px;">
+              ← Back to Dashboard
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="APP.showPage('profile')" style="display:inline-flex;align-items:center;gap:6px;">
+              👤 My Profile
+            </button>
+          </div>
           <div class="navbar-user">
             <div class="points-pill">⭐ ${this.user.points || 0} Pts</div>
-            <span style="font-weight:600;font-size:0.9rem;">${this.user.name}</span>
+            <div class="user-chip" onclick="APP.showPage('profile')">
+              <span class="user-avatar">${(this.user.name || 'S')[0].toUpperCase()}</span>
+              <span class="user-name">${this.user.name}</span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="APP.logout()">Sign Out</button>
           </div>
         </div>
       </nav>
@@ -1212,13 +1227,21 @@ const APP = {
     c.innerHTML = `
       <nav class="navbar glass">
         <div class="navbar-inner">
-          <div class="navbar-brand" onclick="APP.showPage('dashboard')">
-            <img src="public/mariam.png" alt="Mariam Khaled" class="brand-avatar-img">
-            <span>Mariam Khaled</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="btn btn-primary btn-sm" onclick="APP.showPage('dashboard')" style="display:inline-flex;align-items:center;gap:6px;">
+              🏠 Dashboard
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="APP.showPage('profile')" style="display:inline-flex;align-items:center;gap:6px;">
+              👤 My Profile
+            </button>
           </div>
           <div class="navbar-user">
             <div class="points-pill">⭐ ${this.user.points || 0} Pts</div>
-            <button class="btn btn-outline btn-sm" onclick="APP.showPage('profile')">👤 Profile</button>
+            <div class="user-chip" onclick="APP.showPage('profile')">
+              <span class="user-avatar">${(this.user.name || 'S')[0].toUpperCase()}</span>
+              <span class="user-name">${this.user.name}</span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="APP.logout()">Sign Out</button>
           </div>
         </div>
       </nav>
