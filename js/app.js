@@ -25,11 +25,13 @@ const APP = {
         const { data: { session }, error } = await supabaseClient.auth.getSession();
         if (session && session.user) {
           const userMeta = session.user.user_metadata || {};
+          const email = session.user.email;
+          const avatar = await this.loadUserAvatar(session.user.id, email, userMeta.avatar_url);
           this.user = {
             id: session.user.id,
-            email: session.user.email,
-            name: userMeta.full_name || userMeta.name || session.user.email.split('@')[0],
-            avatar: userMeta.avatar_url || null,
+            email: email,
+            name: userMeta.full_name || userMeta.name || email.split('@')[0],
+            avatar: avatar,
             provider: session.user.app_metadata?.provider || 'supabase',
             points: await this.loadUserPoints(session.user.id)
           };
@@ -39,11 +41,13 @@ const APP = {
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
           if (session && session.user) {
             const userMeta = session.user.user_metadata || {};
+            const email = session.user.email;
+            const avatar = await this.loadUserAvatar(session.user.id, email, userMeta.avatar_url);
             this.user = {
               id: session.user.id,
-              email: session.user.email,
-              name: userMeta.full_name || userMeta.name || session.user.email.split('@')[0],
-              avatar: userMeta.avatar_url || null,
+              email: email,
+              name: userMeta.full_name || userMeta.name || email.split('@')[0],
+              avatar: avatar,
               provider: session.user.app_metadata?.provider || 'supabase',
               points: await this.loadUserPoints(session.user.id)
             };
@@ -63,6 +67,145 @@ const APP = {
     if (!this.user) {
       this.user = this.getLocalUser();
     }
+  },
+
+  async loadUserAvatar(userId, email, metaAvatar) {
+    if (email) {
+      const local = localStorage.getItem('msq_avatar_' + email);
+      if (local) return local;
+    }
+    if (this.supabaseAvailable && userId && !userId.startsWith('usr_')) {
+      try {
+        const { data } = await supabaseClient.from('profiles').select('avatar_url').eq('id', userId).maybeSingle();
+        if (data?.avatar_url) return data.avatar_url;
+      } catch (e) {}
+    }
+    return metaAvatar || null;
+  },
+
+  getUserAvatarHtml(size = 34) {
+    if (this.user?.avatar) {
+      return `<img src="${this.user.avatar}" alt="${this.user.name || 'User'}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;border:1.5px solid var(--border);">`;
+    }
+    const initial = (this.user?.name || 'S')[0].toUpperCase();
+    return `<span class="user-avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.45)}px;">${initial}</span>`;
+  },
+
+  showModal(opts) {
+    const existing = document.getElementById('app-modal');
+    if (existing) existing.remove();
+
+    const m = document.createElement('div');
+    m.id = 'app-modal';
+    m.className = 'app-modal-backdrop';
+    m.innerHTML = `
+      <div class="app-modal-card">
+        <div class="app-modal-icon">${opts.icon || '⚠️'}</div>
+        <div class="app-modal-title">${opts.title || 'Confirmation'}</div>
+        <div class="app-modal-body">${opts.message || ''}</div>
+        <div class="app-modal-actions">
+          <button class="btn btn-outline" id="modal-cancel-btn">${opts.cancelText || 'Cancel'}</button>
+          <button class="btn btn-primary" id="modal-confirm-btn" style="${opts.isDanger ? 'background:linear-gradient(135deg,#e74c3c,#c0392b);' : ''}">${opts.confirmText || 'Confirm'}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(m);
+
+    document.getElementById('modal-cancel-btn').onclick = () => {
+      m.remove();
+      if (opts.onCancel) opts.onCancel();
+    };
+    document.getElementById('modal-confirm-btn').onclick = () => {
+      m.remove();
+      if (opts.onConfirm) opts.onConfirm();
+    };
+    m.onclick = (e) => {
+      if (e.target === m) m.remove();
+    };
+  },
+
+  showToast(msg, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      container.className = 'toast-container';
+      document.body.appendChild(container);
+    }
+    const t = document.createElement('div');
+    t.className = `toast-msg ${type}`;
+    t.innerHTML = `${type === 'success' ? '✅' : '⚠️'} <span>${msg}</span>`;
+    container.appendChild(t);
+    setTimeout(() => {
+      t.style.opacity = '0';
+      t.style.transform = 'translateY(20px)';
+      t.style.transition = 'all 0.3s ease';
+      setTimeout(() => t.remove(), 300);
+    }, 3500);
+  },
+
+  async handleAvatarUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      this.showToast('Please select a valid image file (JPG, PNG, WebP)', 'danger');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      this.showToast('Image size should be under 8MB', 'danger');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const rawData = e.target.result;
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 256;
+        let w = img.width;
+        let h = img.height;
+        if (w > h) {
+          if (w > maxDim) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        // Update local state
+        this.user.avatar = dataUrl;
+        this.saveLocalUser(this.user);
+        if (this.user.email) {
+          localStorage.setItem('msq_avatar_' + this.user.email, dataUrl);
+        }
+
+        // Sync to Supabase profiles
+        if (this.supabaseAvailable && this.user.id && !this.user.id.startsWith('usr_') && !this.user.id.startsWith('loc_')) {
+          try {
+            await supabaseClient.from('profiles').update({ avatar_url: dataUrl }).eq('id', this.user.id);
+          } catch (err) {
+            console.warn('Could not sync avatar to Supabase:', err);
+          }
+        }
+
+        this.renderProfile();
+        this.showToast('Profile photo updated successfully!', 'success');
+      };
+      img.src = rawData;
+    };
+    reader.readAsDataURL(file);
   },
 
   async loadUserPoints(userId) {
@@ -571,7 +714,7 @@ const APP = {
               ⭐ ${this.user.points || 0} Pts
             </div>
             <div class="user-chip" onclick="APP.showPage('profile')">
-              <span class="user-avatar">${(this.user.name || 'S')[0].toUpperCase()}</span>
+              ${this.getUserAvatarHtml(32)}
               <span class="user-name">${this.user.name}</span>
             </div>
             <button class="btn btn-outline btn-sm" onclick="APP.logout()">Sign Out</button>
@@ -587,7 +730,7 @@ const APP = {
             <div class="instructor-banner-text">
               <div class="instructor-tag">👩‍🏫 Course Instructor</div>
               <h2>Instructor Mariam Khaled</h2>
-              <p>Welcome to our English interactive testing system. Select <strong>Beginner 2</strong> to practice 100 questions covering grammar rules and vocabulary from Units 7, 8, and 9. <strong>Score 80%+ to earn +10 Points!</strong></p>
+              <p>Select a course level below to start practicing. Score <strong>80%+</strong> on any test to earn <strong>+10 Points</strong>!</p>
             </div>
           </div>
         </div>
@@ -636,6 +779,20 @@ const APP = {
     const passedExams = history.filter(h => h.passed).length;
     const avgScore = totalExams ? Math.round(history.reduce((a, b) => a + b.percentage, 0) / totalExams) : 0;
     const totalPoints = this.user.points || 0;
+    const rewardedExams = history.filter(h => (h.points_earned || 0) > 0);
+
+    // Calculate Tier & Progression
+    let tier = { name: 'Bronze Learner', icon: '🥉', cls: 'tier-bronze', nextName: 'Silver Scholar', target: 30, prev: 0 };
+    if (totalPoints >= 100) {
+      tier = { name: 'Diamond Champion', icon: '👑', cls: 'tier-diamond', nextName: 'Max Tier Achieved! 🏆', target: 100, prev: 100 };
+    } else if (totalPoints >= 60) {
+      tier = { name: 'Gold Master', icon: '🥇', cls: 'tier-gold', nextName: 'Diamond Champion (100 Pts)', target: 100, prev: 60 };
+    } else if (totalPoints >= 30) {
+      tier = { name: 'Silver Scholar', icon: '🥈', cls: 'tier-silver', nextName: 'Gold Master (60 Pts)', target: 60, prev: 30 };
+    }
+
+    const progressPct = totalPoints >= 100 ? 100 : Math.min(100, Math.max(0, Math.round(((totalPoints - tier.prev) / (tier.target - tier.prev)) * 100)));
+    const ptsNeeded = Math.max(0, tier.target - totalPoints);
 
     const c = document.getElementById('page-profile');
     c.innerHTML = `
@@ -647,9 +804,9 @@ const APP = {
             </button>
           </div>
           <div class="navbar-user">
-            <div class="points-pill">⭐ ${this.user.points || 0} Pts</div>
+            <div class="points-pill">⭐ ${totalPoints} Pts</div>
             <div class="user-chip">
-              <span class="user-avatar">${(this.user.name || 'S')[0].toUpperCase()}</span>
+              ${this.getUserAvatarHtml(32)}
               <span class="user-name">${this.user.name}</span>
             </div>
             <button class="btn btn-outline btn-sm" onclick="APP.logout()">Sign Out</button>
@@ -658,16 +815,25 @@ const APP = {
       </nav>
 
       <div class="profile-container">
+        <!-- Student Hero Card with Photo Upload -->
         <div class="profile-hero glass">
-          <div style="display:flex;align-items:center;gap:1.5rem;">
-            <div class="profile-avatar-large">
-              ${(this.user.name || 'S')[0].toUpperCase()}
+          <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+            <div class="profile-avatar-wrapper" onclick="document.getElementById('avatar-file-input').click()" title="Click to upload or change profile photo">
+              <div class="profile-avatar-large">
+                ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar-photo" alt="${this.user.name}">` : `<span>${(this.user.name || 'S')[0].toUpperCase()}</span>`}
+              </div>
+              <div class="avatar-upload-overlay">📷</div>
+              <div class="avatar-badge-btn" title="Change Photo">✏️</div>
             </div>
+            <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="APP.handleAvatarUpload(event)">
+
             <div class="profile-details">
               <h2>${this.user.name}</h2>
               <p>📧 ${this.user.email}</p>
-              <div style="margin-top:6px;">
+              <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span class="tier-badge-pill ${tier.cls}">${tier.icon} ${tier.name}</span>
                 <span class="badge-pass" style="font-size:0.75rem;">Verified Student</span>
+                <button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:0.75rem;" onclick="document.getElementById('avatar-file-input').click()">📷 Upload Photo</button>
               </div>
             </div>
           </div>
@@ -679,6 +845,62 @@ const APP = {
           </div>
         </div>
 
+        <!-- Tier & Rewards Progression -->
+        <div class="rewards-section glass" style="margin-bottom:2rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div>
+              <h3 style="font-size:1.15rem;font-weight:800;margin:0;display:flex;align-items:center;gap:8px;">
+                🏆 Rewards & Learning Tier
+              </h3>
+              <p style="color:var(--text-muted);font-size:0.85rem;margin:4px 0 0;">
+                ${totalPoints >= 100 ? 'You have reached the maximum Diamond Scholar rank!' : `Earn <strong>${ptsNeeded} more points</strong> to unlock <strong>${tier.nextName}</strong>.`}
+              </p>
+            </div>
+            <span class="tier-badge-pill ${tier.cls}">${tier.icon} ${tier.name}</span>
+          </div>
+
+          <div class="tier-progress-track">
+            <div class="tier-progress-fill" style="width:${progressPct}%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--text-muted);font-weight:600;">
+            <span>${tier.prev} Pts</span>
+            <span>${totalPoints} / ${tier.target} Pts</span>
+          </div>
+
+          <!-- Achievement Badges Grid -->
+          <div class="rewards-grid">
+            <div class="reward-card ${totalPoints >= 10 ? 'unlocked' : ''}">
+              <div class="reward-icon">🌱</div>
+              <div>
+                <div style="font-weight:700;font-size:0.9rem;">First Step</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">${totalPoints >= 10 ? '⭐ Unlocked' : 'Complete 1 exam ≥ 80%'}</div>
+              </div>
+            </div>
+            <div class="reward-card ${totalPoints >= 30 ? 'unlocked' : ''}">
+              <div class="reward-icon">🥈</div>
+              <div>
+                <div style="font-weight:700;font-size:0.9rem;">Silver Scholar</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">${totalPoints >= 30 ? '⭐ Unlocked (30+ Pts)' : 'Reach 30 Points'}</div>
+              </div>
+            </div>
+            <div class="reward-card ${totalPoints >= 60 ? 'unlocked' : ''}">
+              <div class="reward-icon">🥇</div>
+              <div>
+                <div style="font-weight:700;font-size:0.9rem;">Gold Master</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">${totalPoints >= 60 ? '⭐ Unlocked (60+ Pts)' : 'Reach 60 Points'}</div>
+              </div>
+            </div>
+            <div class="reward-card ${totalPoints >= 100 ? 'unlocked' : ''}">
+              <div class="reward-icon">👑</div>
+              <div>
+                <div style="font-weight:700;font-size:0.9rem;">Diamond Champion</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">${totalPoints >= 100 ? '⭐ Unlocked (100+ Pts)' : 'Reach 100 Points'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Quick Stats -->
         <div class="stats-cards-grid">
           <div class="stat-card glass">
             <div class="val">${totalExams}</div>
@@ -693,23 +915,24 @@ const APP = {
             <div class="lbl">Average Score</div>
           </div>
           <div class="stat-card glass">
-            <div class="val" style="color:#d97706;">${history.filter(h => h.percentage >= 80).length}</div>
-            <div class="lbl">80%+ Distinctions</div>
+            <div class="val" style="color:#d97706;">${rewardedExams.length}</div>
+            <div class="lbl">+10pt Rewards Earned</div>
           </div>
         </div>
 
+        <!-- Exam & Reward History Table -->
         <div class="history-card glass">
           <h3 style="font-size:1.2rem;font-weight:800;margin-bottom:0.5rem;display:flex;align-items:center;gap:8px;">
-            📊 Exam History & Grades
+            📊 Exam & Reward History
           </h3>
           <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:1.5rem;">
-            All completed practice sessions and their scores are recorded here.
+            All completed practice tests, grades, and earned reward points are recorded here.
           </p>
 
           ${history.length === 0 ? `
             <div style="text-align:center;padding:2rem;color:var(--text-muted);">
               <p style="font-size:1.1rem;margin-bottom:1rem;">No exams taken yet.</p>
-              <button class="btn btn-primary btn-sm" onclick="APP.showPage('exam-setup')">Take Your First Exam →</button>
+              <button class="btn btn-primary btn-sm" onclick="APP.showPage('dashboard')">Take Your First Exam →</button>
             </div>
           ` : `
             <div style="overflow-x:auto;">
@@ -717,10 +940,10 @@ const APP = {
                 <thead>
                   <tr>
                     <th>Date</th>
-                    <th>Level</th>
+                    <th>Course Level</th>
                     <th>Score</th>
                     <th>Result</th>
-                    <th>Points</th>
+                    <th>Points Reward</th>
                     <th>Timer</th>
                   </tr>
                 </thead>
@@ -728,16 +951,16 @@ const APP = {
                   ${history.map(h => `
                     <tr>
                       <td style="font-size:0.85rem;color:var(--text-muted);">${h.date}</td>
-                      <td><strong>${h.level_name || 'Beginner 2'}</strong></td>
-                      <td><strong>${h.score_percentage}%</strong> (${h.correct_answers}/${h.total_questions})</td>
+                      <td><strong>${h.level_name || 'English Course'}</strong></td>
+                      <td><strong>${h.score_percentage || h.percentage}%</strong> (${h.correct_answers || h.correct}/${h.total_questions || h.total})</td>
                       <td>
                         <span class="${h.passed ? 'badge-pass' : 'badge-fail'}">
                           ${h.passed ? 'PASS' : 'STUDY'}
                         </span>
                       </td>
                       <td>
-                        ${h.points_earned > 0 
-                          ? `<span class="badge-points">⭐ +${h.points_earned} Pts</span>` 
+                        ${(h.points_earned || 0) > 0 
+                          ? `<span class="badge-points">⭐ +${h.points_earned} Pts 🏆</span>` 
                           : '<span style="color:var(--text-muted);font-size:0.8rem;">0 Pts</span>'}
                       </td>
                       <td style="font-size:0.85rem;color:var(--text-muted);">
@@ -773,7 +996,7 @@ const APP = {
           <div class="navbar-user">
             <div class="points-pill">⭐ ${this.user.points || 0} Pts</div>
             <div class="user-chip" onclick="APP.showPage('profile')">
-              <span class="user-avatar">${(this.user.name || 'S')[0].toUpperCase()}</span>
+              ${this.getUserAvatarHtml(32)}
               <span class="user-name">${this.user.name}</span>
             </div>
             <button class="btn btn-outline btn-sm" onclick="APP.logout()">Sign Out</button>
@@ -1177,10 +1400,21 @@ const APP = {
   },
 
   confirmExit() {
-    if (confirm('Are you sure you want to exit the current test? Your progress will be lost.')) {
-      if (this.timerInterval) clearInterval(this.timerInterval);
-      this.showPage('exam-setup');
-    }
+    this.showModal({
+      title: 'Exit Practice Test?',
+      icon: '🚪',
+      message: 'Are you sure you want to leave? Your progress in this test will be lost.',
+      confirmText: 'Leave Test',
+      cancelText: 'Stay in Test',
+      isDanger: true,
+      onConfirm: () => {
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
+        }
+        this.showPage('exam-setup', { level: this.activeLevel });
+      }
+    });
   },
 
   async finishExam() {
@@ -1238,7 +1472,7 @@ const APP = {
           <div class="navbar-user">
             <div class="points-pill">⭐ ${this.user.points || 0} Pts</div>
             <div class="user-chip" onclick="APP.showPage('profile')">
-              <span class="user-avatar">${(this.user.name || 'S')[0].toUpperCase()}</span>
+              ${this.getUserAvatarHtml(32)}
               <span class="user-name">${this.user.name}</span>
             </div>
             <button class="btn btn-outline btn-sm" onclick="APP.logout()">Sign Out</button>
