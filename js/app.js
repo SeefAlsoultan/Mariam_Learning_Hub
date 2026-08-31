@@ -613,7 +613,7 @@ const APP = {
         <h3>${lv.name}</h3>
         <p>${lv.desc}</p>
         <div class="level-footer">
-          <span class="level-q-count">${lv.locked ? 'Coming soon' : '100 Questions (70 MCQ + 30 Article)'}</span>
+          <span class="level-q-count">${lv.locked ? 'Coming soon' : `${lv.questionsCount || 46} MCQ Questions`}</span>
           ${!lv.locked ? '<span class="level-arrow">Start Exam →</span>' : ''}
         </div>`;
       
@@ -749,6 +749,7 @@ const APP = {
     if (!this.user) return this.showPage('login');
     const lv = data?.level || this.activeLevel || LEVELS.find(l => !l.locked);
     this.activeLevel = lv;
+    const totalQ = BEGINNER2_MCQ.length;
 
     const c = document.getElementById('page-exam-setup');
     c.innerHTML = `
@@ -782,31 +783,18 @@ const APP = {
             ⚙️ Exam Customization
           </h2>
           <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:1.5rem;">
-            Configure your practice test from the 100 questions. Score <strong>≥ 80%</strong> to earn <strong>+10 Points</strong>!
+            Configure your practice test from the <strong>${totalQ} Multiple Choice Questions</strong>. Score <strong>≥ 80%</strong> to earn <strong>+10 Points</strong>!
           </p>
 
           <div class="setup-grid">
-            <div class="setup-stat">
-              <div class="num">70</div>
-              <div class="label">Multiple Choice (MCQ)</div>
-            </div>
-            <div class="setup-stat">
-              <div class="num">30</div>
-              <div class="label">Article Questions (a/an/the)</div>
+            <div class="setup-stat" style="grid-column: span 2;">
+              <div class="num">${totalQ}</div>
+              <div class="label">Approved Multiple Choice Questions (MCQs)</div>
             </div>
           </div>
 
           <div class="form-group" style="margin-top:1.5rem;">
-            <label>Select Question Category</label>
-            <select id="q-type" class="form-input" onchange="APP.updateAvailableCount()">
-              <option value="all">Mixed (70 MCQ + 30 Article)</option>
-              <option value="mcq">Multiple Choice Only (70 Questions)</option>
-              <option value="article">Article Questions Only (30 Questions)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>⏱️ Question Timer Mode (MCQs Only)</label>
+            <label>⏱️ Question Timer Mode</label>
             <div class="timer-options">
               <div class="timer-opt-card selected" data-timer="none" onclick="APP.selectTimerMode('none', this)">
                 <div class="timer-opt-icon">♾️</div>
@@ -814,28 +802,25 @@ const APP = {
               </div>
               <div class="timer-opt-card" data-timer="30" onclick="APP.selectTimerMode('30', this)">
                 <div class="timer-opt-icon">⚡ 30s</div>
-                <div class="timer-opt-title">30s / MCQ</div>
+                <div class="timer-opt-title">30s / Question</div>
               </div>
               <div class="timer-opt-card" data-timer="60" onclick="APP.selectTimerMode('60', this)">
                 <div class="timer-opt-icon">⏳ 60s</div>
-                <div class="timer-opt-title">60s / MCQ</div>
+                <div class="timer-opt-title">60s / Question</div>
               </div>
             </div>
-            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">
-              * Note: Timers apply to MCQs only. Article questions have unlimited time.
-            </p>
           </div>
 
           <div class="form-group">
             <label>Number of Questions to Practice</label>
-            <input type="number" id="q-count" class="form-input" min="5" max="100" value="20" style="text-align:center;font-weight:700;font-size:1.1rem;">
+            <input type="number" id="q-count" class="form-input" min="5" max="${totalQ}" value="${Math.min(20, totalQ)}" style="text-align:center;font-weight:700;font-size:1.1rem;">
           </div>
 
           <div class="quick-presets">
             <button class="btn btn-outline btn-sm" onclick="APP.setQuickCount(10)">Quick (10)</button>
-            <button class="btn btn-outline btn-sm" onclick="APP.setQuickCount(25)">Standard (25)</button>
-            <button class="btn btn-outline btn-sm" onclick="APP.setQuickCount(50)">Half Exam (50)</button>
-            <button class="btn btn-outline btn-sm" onclick="APP.setQuickCount('all')">Full Exam (All 100)</button>
+            <button class="btn btn-outline btn-sm" onclick="APP.setQuickCount(20)">Standard (20)</button>
+            <button class="btn btn-outline btn-sm" onclick="APP.setQuickCount(30)">Practice (30)</button>
+            <button class="btn btn-outline btn-sm" onclick="APP.setQuickCount('all')">Full Exam (All ${totalQ})</button>
           </div>
 
           <button class="btn btn-primary btn-lg btn-block shine" style="margin-top:1.5rem;" onclick="APP.startExam()">
@@ -862,21 +847,15 @@ const APP = {
   },
 
   setQuickCount(val) {
-    const type = document.getElementById('q-type').value;
-    const max = type === 'mcq' ? 70 : (type === 'article' ? 30 : 100);
+    const max = BEGINNER2_MCQ.length;
     const countInput = document.getElementById('q-count');
     if (val === 'all') countInput.value = max;
     else countInput.value = Math.min(val, max);
   },
 
   startExam() {
-    const type = document.getElementById('q-type').value;
     let count = parseInt(document.getElementById('q-count').value) || 20;
-    let pool = [];
-
-    if (type === 'mcq') pool = [...BEGINNER2_MCQ];
-    else if (type === 'article') pool = [...BEGINNER2_ARTICLE];
-    else pool = [...BEGINNER2_MCQ, ...BEGINNER2_ARTICLE];
+    let pool = [...BEGINNER2_MCQ];
 
     // Shuffle pool
     for (let i = pool.length - 1; i > 0; i--) {
@@ -891,7 +870,7 @@ const APP = {
       questions,
       levelId: this.activeLevel?.id || 'beginner2',
       levelName: this.activeLevel?.name || 'Beginner 2',
-      type,
+      type: 'mcq',
       timerMode: this.selectedTimerMode || 'none'
     });
   },
