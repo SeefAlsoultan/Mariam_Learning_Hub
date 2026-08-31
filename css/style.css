@@ -1072,6 +1072,168 @@ img { max-width: 100%; display: block; }
   font-size: 2rem;
 }
 
+/* Admin Portal Styles */
+.admin-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  animation: fadeInUp 0.4s ease-out;
+}
+.admin-hero-card {
+  border-radius: var(--radius);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+.admin-hero-text h1 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.admin-hero-text p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+.admin-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.admin-stat-card {
+  padding: 1.25rem;
+  border-radius: var(--radius-sm);
+  background: white;
+  border: 1px solid var(--border);
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+.admin-stat-card .val {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1.2;
+}
+.admin-stat-card .lbl {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.admin-card {
+  border-radius: var(--radius);
+  padding: 2rem;
+  background: white;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+.admin-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.admin-search-box {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  max-width: 450px;
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.admin-table th, .admin-table td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+  vertical-align: middle;
+}
+.admin-table th {
+  background: #f8fafc;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+.admin-table tr:hover td {
+  background: #f8fafc;
+}
+
+.badge-role-super {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: white;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.badge-role-admin {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: white;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.badge-role-student {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+}
+
+.class-pill {
+  display: inline-block;
+  background: rgba(46, 117, 182, 0.1);
+  color: var(--primary);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin: 2px;
+}
+.class-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  margin-top: 6px;
+}
+.class-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.table-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.table-actions .btn {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
 /* Utilities */
 .hidden { display: none !important; }
 
@@ -1085,4 +1247,6 @@ img { max-width: 100%; display: block; }
   .result-score { font-size: 2.8rem; }
   .instructor-banner-content { flex-direction: column; text-align: center; }
   .profile-hero { flex-direction: column; text-align: center; }
+  .admin-toolbar { flex-direction: column; align-items: stretch; }
+  .admin-search-box { max-width: 100%; }
 }

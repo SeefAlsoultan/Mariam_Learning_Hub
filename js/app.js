@@ -27,11 +27,20 @@ const APP = {
           const userMeta = session.user.user_metadata || {};
           const email = session.user.email;
           const avatar = await this.loadUserAvatar(session.user.id, email, userMeta.avatar_url);
+          let role = userMeta.role;
+          if (email === 'seefalsoultan@gmail.com') role = 'super_admin';
+          else if (email === 'mk6806168@gmail.com' && role !== 'super_admin') role = 'admin';
+          else if (!role) role = 'student';
+
+          const assignedClasses = userMeta.assigned_classes || (role === 'admin' || role === 'super_admin' ? ['beginner1', 'beginner2', 'elementary1', 'elementary2', 'advanced1', 'preintermediate', 'intermediate'] : ['beginner2', 'advanced1']);
+
           this.user = {
             id: session.user.id,
             email: email,
             name: userMeta.full_name || userMeta.name || email.split('@')[0],
             avatar: avatar,
+            role: role,
+            assigned_classes: assignedClasses,
             provider: session.user.app_metadata?.provider || 'supabase',
             points: await this.loadUserPoints(session.user.id)
           };
@@ -43,11 +52,20 @@ const APP = {
             const userMeta = session.user.user_metadata || {};
             const email = session.user.email;
             const avatar = await this.loadUserAvatar(session.user.id, email, userMeta.avatar_url);
+            let role = userMeta.role;
+            if (email === 'seefalsoultan@gmail.com') role = 'super_admin';
+            else if (email === 'mk6806168@gmail.com' && role !== 'super_admin') role = 'admin';
+            else if (!role) role = 'student';
+
+            const assignedClasses = userMeta.assigned_classes || (role === 'admin' || role === 'super_admin' ? ['beginner1', 'beginner2', 'elementary1', 'elementary2', 'advanced1', 'preintermediate', 'intermediate'] : ['beginner2', 'advanced1']);
+
             this.user = {
               id: session.user.id,
               email: email,
               name: userMeta.full_name || userMeta.name || email.split('@')[0],
               avatar: avatar,
+              role: role,
+              assigned_classes: assignedClasses,
               provider: session.user.app_metadata?.provider || 'supabase',
               points: await this.loadUserPoints(session.user.id)
             };
@@ -236,6 +254,14 @@ const APP = {
     } catch (e) { console.error(e); }
   },
 
+  isAdmin() {
+    return typeof ADMIN_PORTAL !== 'undefined' && ADMIN_PORTAL.isAdmin(this.user);
+  },
+
+  isSuperAdmin() {
+    return typeof ADMIN_PORTAL !== 'undefined' && ADMIN_PORTAL.isSuperAdmin(this.user);
+  },
+
   setupRoutes() {
     if (this.user) {
       this.showPage('dashboard');
@@ -261,6 +287,7 @@ const APP = {
       case 'otp': this.renderOtp(data); break;
       case 'dashboard': this.renderDashboard(); break;
       case 'profile': this.renderProfile(); break;
+      case 'admin': if (typeof ADMIN_PORTAL !== 'undefined') ADMIN_PORTAL.render(); break;
       case 'exam-setup': this.renderExamSetup(data); break;
       case 'quiz': this.renderQuiz(data); break;
       case 'result': this.renderResult(data); break;
@@ -710,6 +737,11 @@ const APP = {
             </div>
           </div>
           <div class="navbar-user">
+            ${this.isAdmin() ? `
+              <button class="btn btn-outline btn-sm" onclick="APP.showPage('admin')" style="background:rgba(46,117,182,0.1);color:var(--primary);font-weight:700;border-color:var(--primary);">
+                🛡️ Admin Portal
+              </button>
+            ` : ''}
             <div class="points-pill" title="Earn +10 points for each test >= 80%">
               ⭐ ${this.user.points || 0} Pts
             </div>
@@ -744,25 +776,30 @@ const APP = {
       </div>`;
 
     const grid = document.getElementById('levels-grid');
+    const userClasses = this.user?.assigned_classes || (this.isAdmin() ? ['beginner1', 'beginner2', 'elementary1', 'elementary2', 'advanced1', 'preintermediate', 'intermediate'] : ['beginner2', 'advanced1']);
+
     LEVELS.forEach((lv, idx) => {
+      const isAssigned = this.isAdmin() || userClasses.includes(lv.id);
+      const isLocked = lv.locked || !isAssigned;
+
       const card = document.createElement('div');
-      card.className = 'level-card glass' + (lv.locked ? ' locked' : ' active-card');
+      card.className = 'level-card glass' + (isLocked ? ' locked' : ' active-card');
       card.style.animationDelay = `${0.05 * (idx + 1)}s`;
       card.innerHTML = `
         <div class="level-top">
           <div class="level-icon" style="background:${lv.color}15;color:${lv.color};">${lv.icon}</div>
-          <span class="level-badge ${lv.locked ? 'locked-badge' : 'active'}">
-            ${lv.locked ? '🔒 Locked' : '⭐ Available Now'}
+          <span class="level-badge ${isLocked ? 'locked-badge' : 'active'}">
+            ${isLocked ? (lv.locked ? '🔒 Locked' : '🔒 Not Assigned') : '⭐ Available Now'}
           </span>
         </div>
         <h3>${lv.name}</h3>
         <p>${lv.desc}</p>
         <div class="level-footer">
-          <span class="level-q-count">${lv.locked ? 'Coming soon' : `${lv.questionsCount || 46} MCQ Questions`}</span>
-          ${!lv.locked ? '<span class="level-arrow">Start Exam →</span>' : ''}
+          <span class="level-q-count">${isLocked ? (lv.locked ? 'Coming soon' : 'Not assigned to your account') : `${lv.questionsCount || 46} MCQ Questions`}</span>
+          ${!isLocked ? '<span class="level-arrow">Start Exam →</span>' : ''}
         </div>`;
       
-      if (!lv.locked) {
+      if (!isLocked) {
         card.onclick = () => {
           this.activeLevel = lv;
           this.showPage('exam-setup', { level: lv });
@@ -804,6 +841,11 @@ const APP = {
             </button>
           </div>
           <div class="navbar-user">
+            ${this.isAdmin() ? `
+              <button class="btn btn-outline btn-sm" onclick="APP.showPage('admin')" style="background:rgba(46,117,182,0.1);color:var(--primary);font-weight:700;border-color:var(--primary);">
+                🛡️ Admin Portal
+              </button>
+            ` : ''}
             <div class="points-pill">⭐ ${totalPoints} Pts</div>
             <div class="user-chip">
               ${this.getUserAvatarHtml(32)}
@@ -831,8 +873,8 @@ const APP = {
               <h2>${this.user.name}</h2>
               <p>📧 ${this.user.email}</p>
               <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                ${this.isSuperAdmin() ? '<span class="badge-role-super">👑 Super Admin</span>' : (this.isAdmin() ? '<span class="badge-role-admin">🛡️ Admin</span>' : '<span class="badge-pass" style="font-size:0.75rem;">Verified Student</span>')}
                 <span class="tier-badge-pill ${tier.cls}">${tier.icon} ${tier.name}</span>
-                <span class="badge-pass" style="font-size:0.75rem;">Verified Student</span>
                 <button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:0.75rem;" onclick="document.getElementById('avatar-file-input').click()">📷 Upload Photo</button>
               </div>
             </div>
@@ -994,6 +1036,11 @@ const APP = {
             </button>
           </div>
           <div class="navbar-user">
+            ${this.isAdmin() ? `
+              <button class="btn btn-outline btn-sm" onclick="APP.showPage('admin')" style="background:rgba(46,117,182,0.1);color:var(--primary);font-weight:700;border-color:var(--primary);">
+                🛡️ Admin Portal
+              </button>
+            ` : ''}
             <div class="points-pill">⭐ ${this.user.points || 0} Pts</div>
             <div class="user-chip" onclick="APP.showPage('profile')">
               ${this.getUserAvatarHtml(32)}
@@ -1470,6 +1517,11 @@ const APP = {
             </button>
           </div>
           <div class="navbar-user">
+            ${this.isAdmin() ? `
+              <button class="btn btn-outline btn-sm" onclick="APP.showPage('admin')" style="background:rgba(46,117,182,0.1);color:var(--primary);font-weight:700;border-color:var(--primary);">
+                🛡️ Admin Portal
+              </button>
+            ` : ''}
             <div class="points-pill">⭐ ${this.user.points || 0} Pts</div>
             <div class="user-chip" onclick="APP.showPage('profile')">
               ${this.getUserAvatarHtml(32)}
