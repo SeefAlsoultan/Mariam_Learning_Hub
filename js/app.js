@@ -749,7 +749,7 @@ const APP = {
     if (!this.user) return this.showPage('login');
     const lv = data?.level || this.activeLevel || LEVELS.find(l => !l.locked);
     this.activeLevel = lv;
-    const totalQ = BEGINNER2_MCQ.length;
+    const totalQ = this.getQuestionsForLevel(lv).length;
 
     const c = document.getElementById('page-exam-setup');
     c.innerHTML = `
@@ -830,6 +830,16 @@ const APP = {
       </div>`;
   },
 
+  getQuestionsForLevel(level) {
+    if (!level) return BEGINNER2_MCQ;
+    const id = level.id || level;
+    switch (id) {
+      case 'advanced1': return typeof ADVANCED1_MCQ !== 'undefined' ? ADVANCED1_MCQ : [];
+      case 'beginner2': return BEGINNER2_MCQ;
+      default: return BEGINNER2_MCQ;
+    }
+  },
+
   selectedTimerMode: 'none',
 
   selectTimerMode(mode, el) {
@@ -847,7 +857,7 @@ const APP = {
   },
 
   setQuickCount(val) {
-    const max = BEGINNER2_MCQ.length;
+    const max = this.getQuestionsForLevel(this.activeLevel).length;
     const countInput = document.getElementById('q-count');
     if (val === 'all') countInput.value = max;
     else countInput.value = Math.min(val, max);
@@ -855,7 +865,7 @@ const APP = {
 
   startExam() {
     let count = parseInt(document.getElementById('q-count').value) || 20;
-    let pool = [...BEGINNER2_MCQ];
+    let pool = [...this.getQuestionsForLevel(this.activeLevel)];
 
     // Shuffle pool
     for (let i = pool.length - 1; i > 0; i--) {
